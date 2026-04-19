@@ -37,6 +37,7 @@ class NativeHTMLParser(HTMLParser):
     
     Ignores text inside script and style tags to get clean, visible content.
     Extracts all href attributes from anchor tags.
+    Extracts the page title from the <title> tag.
     """
 
     def __init__(self) -> None:
@@ -44,16 +45,21 @@ class NativeHTMLParser(HTMLParser):
         super().__init__()
         self.text_parts: List[str] = []
         self.links: Set[str] = set()
+        self.title: str = ""
         self.in_script_or_style = False
+        self.in_title = False
 
     def handle_starttag(self, tag: str, attrs: List[Tuple[str, str]]) -> None:
         """Handle opening tags.
         
         Tracks when we enter script/style tags (to ignore their content).
         Extracts href attributes from anchor tags.
+        Marks when we enter title tag.
         """
         if tag in ("script", "style"):
             self.in_script_or_style = True
+        elif tag == "title":
+            self.in_title = True
         elif tag == "a":
             for attr, value in attrs:
                 if attr == "href" and value:
@@ -63,13 +69,20 @@ class NativeHTMLParser(HTMLParser):
         """Handle closing tags.
         
         Marks when we exit script/style tags.
+        Marks when we exit title tag.
         """
         if tag in ("script", "style"):
             self.in_script_or_style = False
+        elif tag == "title":
+            self.in_title = False
 
     def handle_data(self, data: str) -> None:
-        """Extract visible text (unless inside script/style tags)."""
-        if not self.in_script_or_style:
+        """Extract visible text (unless inside script/style tags) and page title."""
+        if self.in_title:
+            text = data.strip()
+            if text:
+                self.title = text
+        elif not self.in_script_or_style:
             text = data.strip()
             if text:
                 self.text_parts.append(text)
@@ -82,8 +95,12 @@ class NativeHTMLParser(HTMLParser):
         """Return all extracted links."""
         return self.links
 
+    def get_title(self) -> str:
+        """Return the extracted page title."""
+        return self.title
 
-def fetch_and_parse(url: str, timeout: int = 10) -> Tuple[str, Set[str]]:
+
+def fetch_and_parse(url: str, timeout: int = 10) -> Tuple[str, Set[str], str]:
     """Fetch a URL and parse its HTML using urllib.
     
     Sends requests with a standard browser User-Agent header to avoid
@@ -94,7 +111,7 @@ def fetch_and_parse(url: str, timeout: int = 10) -> Tuple[str, Set[str]]:
         timeout: Request timeout in seconds. Defaults to 10.
     
     Returns:
-        A tuple of (visible_text, links) extracted from the page.
+        A tuple of (visible_text, links, title) extracted from the page.
     
     Raises:
         urllib.error.URLError: If the URL is invalid or unreachable.
@@ -117,7 +134,7 @@ def fetch_and_parse(url: str, timeout: int = 10) -> Tuple[str, Set[str]]:
         parser = NativeHTMLParser()
         parser.feed(content)
 
-        return parser.get_text(), parser.get_links()
+        return parser.get_text(), parser.get_links(), parser.get_title()
     except Exception as e:
         logger.error(f"Failed to fetch or parse {url}: {e}")
         raise
@@ -226,7 +243,18 @@ def worker_thread(
             logger.info(f"Worker {worker_id} processing: {task.url}")
 
             # Fetch and parse the page
-            text, links = fetch_and_parse(task.url, timeout=timeout)
+            text, links, title = fetch_and_parse(task.url, timeout=timeout)
+
+            # Record the title for this page
+            metadata = metadata_map.get(task.url)
+            if metadata is not None:
+                # Re-record with the title we just extracted
+                metadata_map.record(
+                    url=task.url,
+                    origin_url=metadata.origin_url,
+                    depth=metadata.depth,
+                    title=title if title else None,
+                )
 
             # Calculate word frequencies and index the visible text
             word_frequencies = calculate_word_frequencies(text)
@@ -252,6 +280,7 @@ def worker_thread(
                                 url=absolute_url,
                                 origin_url=task.url,
                                 depth=task.depth + 1,
+                                title=None,
                             )
 
                             # Create a task for the newly discovered URL

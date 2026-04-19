@@ -81,6 +81,7 @@ class DiscoveryMetadata:
 
     origin_url: Optional[str]
     depth: int
+    title: Optional[str] = None
 
     def __post_init__(self) -> None:
         """Validate metadata fields at construction time."""
@@ -88,10 +89,12 @@ class DiscoveryMetadata:
             raise ValueError("DiscoveryMetadata.origin_url must be a string or None.")
         if not isinstance(self.depth, int) or self.depth < 0:
             raise ValueError("DiscoveryMetadata.depth must be a non-negative integer.")
+        if self.title is not None and not isinstance(self.title, str):
+            raise ValueError("DiscoveryMetadata.title must be a string or None.")
 
     def to_dict(self) -> Dict[str, object]:
         """Return a JSON-serializable representation of the metadata."""
-        return {"origin_url": self.origin_url, "depth": self.depth}
+        return {"origin_url": self.origin_url, "depth": self.depth, "title": self.title}
 
     @classmethod
     def from_dict(cls, payload: Dict[str, object]) -> "DiscoveryMetadata":
@@ -99,6 +102,7 @@ class DiscoveryMetadata:
         return cls(
             origin_url=_optional_string(payload.get("origin_url")),
             depth=_require_non_negative_int(payload, "depth"),
+            title=_optional_string(payload.get("title")),
         )
 
 
@@ -476,30 +480,19 @@ class ThreadSafeMetadataMap:
                     )
                 self._metadata[url] = metadata
 
-    def record(self, url: str, origin_url: Optional[str], depth: int) -> DiscoveryMetadata:
-        """Store discovery metadata for ``url``.
-
-        Args:
-            url: The discovered URL.
-            origin_url: The page that contained ``url``. For seed URLs, callers
-                may pass the seed itself or ``None``.
-            depth: Crawl depth assigned to ``url``.
-
-        Returns:
-            The metadata currently stored for ``url``.
-
-        Notes:
-            If the URL already exists, the shallower depth wins. This makes the
-            structure stable under races where the same URL is discovered from
-            multiple pages at nearly the same time.
-        """
-        ThreadSafeVisitedSet._validate_url(url)
-        metadata = DiscoveryMetadata(origin_url=origin_url, depth=depth)
-        with self._lock:
-            current = self._metadata.get(url)
-            if current is None or metadata.depth < current.depth:
-                self._metadata[url] = metadata
-            return self._metadata[url]
+    def record(self, url: str, origin_url: Optional[str], depth: int, title: Optional[str] = None) -> DiscoveryMetadata:
+            ThreadSafeVisitedSet._validate_url(url)
+            metadata = DiscoveryMetadata(origin_url=origin_url, depth=depth, title=title)
+            with self._lock:
+                current = self._metadata.get(url)
+                
+                # Eğer kayıt yoksa VEYA derinlik daha azsa VEYA aynı derinlikteyiz ama yeni bir başlık bulduysak güncelle
+                if (current is None or 
+                    metadata.depth < current.depth or 
+                    (metadata.depth == current.depth and title is not None and current.title is None)):
+                    self._metadata[url] = metadata
+                    
+                return self._metadata[url]
 
     def get(self, url: str) -> Optional[DiscoveryMetadata]:
         """Return the stored metadata for ``url``, or ``None`` if absent."""

@@ -212,6 +212,7 @@ class CrawlerHandler(BaseHTTPRequestHandler):
                     url=seed_url,
                     origin_url=None,
                     depth=0,
+                    title=None,
                 )
 
             seed_task = CrawlTask(
@@ -295,6 +296,7 @@ class CrawlerHandler(BaseHTTPRequestHandler):
                 "url": r.url,
                 "origin_url": r.origin_url,
                 "depth": r.depth,
+                "title": r.title,
                 "relevance_score": r.relevance_score,
                 "frequency": r.frequency,
             }
@@ -991,12 +993,14 @@ _DASHBOARD_HTML = """<!DOCTYPE html>
         const li = document.createElement("li");
         li.className = "result-item";
 
+        // Use title if available, otherwise use URL as the link text
+        const linkText = item.title ? item.title : item.url;
         const link = document.createElement("a");
         link.href = item.url;
         link.target = "_blank";
         link.rel = "noopener noreferrer";
         link.className = "result-link";
-        link.textContent = item.url;
+        link.textContent = linkText;
 
         const displayUrl = document.createElement("div");
         displayUrl.className = "result-display-url";

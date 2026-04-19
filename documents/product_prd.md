@@ -17,7 +17,7 @@ To build a highly concurrent, thread-safe web crawler and real-time search engin
 * **Query Engine:** Accepts a multi-word string query and processes it using AND semantics.
 * **Live Indexing (Concurrent Reads):** Search operations must run seamlessly while the indexer is active, without acquiring blocking locks that would halt crawler workers.
 * **Relevancy (Ranking):** Results must be ranked based on a specific heuristic formula: `score = (frequency * 10) + 1000 - (depth * 5)`.
-* **Output:** Returns a list of structured triples/tuples containing: `(relevant_url, origin_url, depth, relevance_score, frequency)`.
+* **Output:** Returns a list of structured results containing: `(title, relevant_url, origin_url, depth, relevance_score, frequency)`.
 
 ### 2.3. System Visibility & Dashboard (UI/CLI)
 * Provides a web-based dashboard running on `http://localhost:3600`.

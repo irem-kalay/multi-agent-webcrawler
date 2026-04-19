@@ -71,6 +71,7 @@ class SearchResult(NamedTuple):
         origin_url:        The page that first discovered ``url`` (may be ``None``
                            for seed URLs).
         depth:             Crawl depth at which ``url`` was discovered.
+        title:             The page title if available (may be ``None`` or empty).
         relevance_score:   Calculated relevance score using the formula:
                            score = (frequency * 10) + 1000 - (depth * 5)
         frequency:         Total occurrence count across all query tokens for this URL.
@@ -79,6 +80,7 @@ class SearchResult(NamedTuple):
     url: str
     origin_url: Optional[str]
     depth: int
+    title: Optional[str]
     relevance_score: float
     frequency: int
 
@@ -197,9 +199,11 @@ class SearchEngine:
                 )
                 depth = 999_999
                 origin_url = None
+                title = None
             else:
                 depth = meta.depth
                 origin_url = meta.origin_url
+                title = meta.title
 
             # Calculate relevance_score = (frequency * 10) + 1000 - (depth * 5)
             # Sum frequencies across all query tokens for this URL
@@ -212,6 +216,7 @@ class SearchEngine:
                 url=url,
                 origin_url=origin_url,
                 depth=depth,
+                title=title,
                 relevance_score=relevance_score,
                 frequency=total_frequency,
             ))
