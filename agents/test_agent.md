@@ -57,3 +57,13 @@
 **Instructions:**
 * **Priority Logic:** Refactor `CrawlQueue` in `data_structures.py` to wrap `queue.PriorityQueue`.
 * **Depth Prioritization:** Ensure that tasks are prioritized by depth (lower depth = higher priority) so that pages closer to the seed URL are always processed first.
+
+## 7. Prompt for UI/UX Enhancement (Page Titles)
+
+**Task:** Extract and display HTML `<title>` tags in search results to mimic a real search engine experience instead of showing raw URLs.
+
+**Instructions (Cross-Agent Coordination):**
+* **To Architect:** Update `DiscoveryMetadata` and `ThreadSafeMetadataMap` in `data_structures.py` to store a `title` string.
+* **To Crawler:** Update `NativeHTMLParser` to capture text inside `<title>` tags and pass it to the metadata storage during the fetch phase.
+* **To Search Engine:** Update the `SearchResult` NamedTuple to include the extracted `title` and return it in the result set.
+* **To UI:** Update the JavaScript renderer in `webserver.py` to display `item.title` as the clickable link text, falling back to `item.url` if no title is present.
